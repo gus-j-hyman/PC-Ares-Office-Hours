@@ -19,7 +19,7 @@ emailjs.init("aKaqwihPbn46q3V25");
 const ADMIN_PASSWORD = "BetaEta#1";
 
 const ADMIN_USERS = [
-    { id: "admin_1", name: "Brother Hyman", email: "g.hyman@ufdsp.com" },
+    { id: "admin_1", name: "Gus Hyman", email: "gus.j.hyman@gmail.com" },
     { id: "admin_2", name: "Brother Wechsler", email: "pledgedevelopment@ufdsp.com" },
     { id: "admin_3", name: "Brother Hoyos", email: "a.hoyos@ufdsp.com" },
     { id: "admin_4", name: "Brother Thomas", email: "j.thomas@ufdsp.com" },
@@ -44,6 +44,8 @@ function listenToDatabase() {
             timeslots.push(slotData);
         });
         renderCalendar();
+    }, (error) => {
+        console.error("Firestore snapshot error:", error);
     });
 }
 
@@ -82,59 +84,77 @@ function populateAdminDropdown() {
     });
 }
 
-// --- 5. SLOT GENERATION (WRITING TO CLOUD) ---
+// --- 5. SLOT GENERATION (BATCH WRITE) ---
 function generateTimeslots() {
     const dateStr = document.getElementById("admin-date").value;
     const startTimeStr = document.getElementById("admin-start").value;
     const endTimeStr = document.getElementById("admin-end").value;
     const adminId = document.getElementById("admin-host").value;
-    const location = document.getElementById("admin-location").value;
+    const location = document.getElementById("admin-location").value.trim();
 
     if (!dateStr || !startTimeStr || !endTimeStr || !location) {
-        alert("Please fill out all fields, including the date.");
+        alert("Please fill out all fields, including the date and location.");
         return;
     }
 
     const selectedAdmin = ADMIN_USERS.find(a => a.id === adminId);
+    if (!selectedAdmin) {
+        alert("Invalid admin selected.");
+        return;
+    }
 
-    const dateObj = new Date(dateStr + "T00:00:00");
-    const formattedDate = dateObj.toLocaleDateString('en-US', { 
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
-    });
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [startHour, startMin] = startTimeStr.split(':').map(Number);
+    const [endHour, endMin] = endTimeStr.split(':').map(Number);
 
-    const baseDate = "1970-01-01T";
-    let current = new Date(baseDate + startTimeStr + ":00");
-    const end = new Date(baseDate + endTimeStr + ":00");
+    const startDateObj = new Date(year, month - 1, day, startHour, startMin);
+    const endDateObj = new Date(year, month - 1, day, endHour, endMin);
 
-    if (current >= end) {
+    if (startDateObj >= endDateObj) {
         alert("End time must be after start time.");
         return;
     }
 
+    const formattedDate = startDateObj.toLocaleDateString('en-US', { 
+        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+    });
+
+    let currentMs = startDateObj.getTime();
+    const endMs = endDateObj.getTime();
     let generatedCount = 0;
-    while (current < end) {
-        const next = new Date(current.getTime() + 30 * 60000);
-        if (next > end) break;
 
-        const slotStartObj = new Date(`${dateStr}T${current.toTimeString().split(' ')[0]}`);
+    const batch = db.batch();
 
-        db.collection("timeslots").add({
+    while (currentMs < endMs) {
+        const nextMs = currentMs + (30 * 60000);
+        if (nextMs > endMs) break;
+
+        const slotStart = new Date(currentMs);
+        const slotEnd = new Date(nextMs);
+
+        const newRef = db.collection("timeslots").doc();
+        batch.set(newRef, {
             date: formattedDate,
-            startTime: formatTime(current),
-            endTime: formatTime(next),
-            startTimestamp: slotStartObj.getTime(), 
+            startTime: formatTime(slotStart),
+            endTime: formatTime(slotEnd),
+            startTimestamp: currentMs, 
             hostName: selectedAdmin.name,
             adminEmail: selectedAdmin.email,
             location: location,
             isBooked: false
         });
 
-        current = next;
+        currentMs = nextMs;
         generatedCount++;
     }
 
-    alert(`Successfully generated ${generatedCount} time slots.`);
-    closeModal("admin-dashboard-modal");
+    batch.commit().then(() => {
+        alert(`Successfully generated ${generatedCount} time slots.`);
+        closeModal("admin-dashboard-modal");
+    }).catch((error) => {
+        console.error("Error committing slot batch:", error);
+        alert("Failed to generate slots. Check database permissions.");
+    });
 }
 
 function formatTime(dateObj) {
@@ -149,7 +169,7 @@ function renderCalendar() {
     const currentTime = Date.now();
 
     const availableSlots = timeslots.filter(slot => {
-        const isFuture = slot.startTimestamp > currentTime;
+        const isFuture = (slot.startTimestamp || 0) > currentTime;
         return !slot.isBooked && isFuture;
     });
 
@@ -172,13 +192,13 @@ function renderCalendar() {
                 <div class="text-sm text-gray-700 mb-1"><strong>Host:</strong> ${slot.hostName}</div>
                 <div class="text-sm text-gray-700"><strong>Room:</strong> ${slot.location}</div>
             </div>
-            <div class="mt-4 text-sm text-dsp-gold font-semibold tracking-wide uppercase group-hover:underline">Book Slot &rarr;</div>
+            <div class="mt-4 text-sm text-dsp-gold font-semibold tracking-wide uppercase hover:underline">Book Slot &rarr;</div>
         `;
         grid.appendChild(card);
     });
 }
 
-// --- 7. BOOKING LOGIC ---
+// --- 7. ATOMIC BOOKING LOGIC ---
 function initBooking(slotId) {
     const slot = timeslots.find(s => s.id === slotId);
     if (!slot) return;
@@ -195,9 +215,9 @@ function initBooking(slotId) {
 
 function confirmMeeting() {
     const slotId = document.getElementById("book-slot-id").value;
-    const name = document.getElementById("book-name").value;
+    const name = document.getElementById("book-name").value.trim();
     const topic = document.getElementById("book-topic").value;
-    const info = document.getElementById("book-info").value;
+    const info = document.getElementById("book-info").value.trim();
 
     if (!name || !topic) {
         alert("Name and Meeting Topic are required.");
@@ -208,32 +228,37 @@ function confirmMeeting() {
     confirmBtn.innerText = "Booking...";
     confirmBtn.disabled = true;
 
-    const slot = timeslots.find(s => s.id === slotId);
-    if (!slot || slot.isBooked || slot.startTimestamp <= Date.now()) {
-        alert("Sorry, this slot is no longer available.");
-        closeModal("booking-modal");
-        resetBtn(confirmBtn);
-        return;
-    }
+    const slotRef = db.collection("timeslots").doc(slotId);
 
-    db.collection("timeslots").doc(slotId).update({
-        isBooked: true,
-        studentName: name,
-        studentTopic: topic,
-        studentNotes: info
-    }).then(() => {
+    db.runTransaction(async (transaction) => {
+        const slotDoc = await transaction.get(slotRef);
+        if (!slotDoc.exists) {
+            throw new Error("This slot no longer exists.");
+        }
+
+        const slotData = slotDoc.data();
+        if (slotData.isBooked || slotData.startTimestamp <= Date.now()) {
+            throw new Error("Sorry, this slot is no longer available.");
+        }
+
+        transaction.update(slotRef, {
+            isBooked: true,
+            studentName: name,
+            studentTopic: topic,
+            studentNotes: info
+        });
+
+        return slotData;
+    }).then((slot) => {
         triggerAutomatedEmail(slot, { name, topic, info });
-        
-        // Encode text properly for web URLs
+
+        const startObj = new Date(slot.startTimestamp);
+        const endObj = new Date(slot.startTimestamp + (30 * 60000));
+
         const eventTitle = encodeURIComponent(`${topic} with ${slot.hostName}`);
         const eventLocation = encodeURIComponent(slot.location);
-        const eventDetails = encodeURIComponent(`DSP Office Hours meeting regarding ${topic}.`);
-        
-        // FIX: Use exact mathematical timestamps to prevent browser parsing errors
-        const startObj = new Date(slot.startTimestamp);
-        const endObj = new Date(slot.startTimestamp + (30 * 60000)); // Adds exactly 30 minutes
-        
-        // Formatter for Google Calendar
+        const eventDetails = encodeURIComponent(`DSP Office Hours meeting regarding ${topic}.\nNotes: ${info || 'None'}`);
+
         const formatWebDate = (d) => d.toISOString().replace(/-|:|\.\d+/g, '');
 
         // 1. Apple/Default (.ics file)
@@ -246,13 +271,12 @@ function confirmMeeting() {
         const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${formatWebDate(startObj)}/${formatWebDate(endObj)}&details=${eventDetails}&location=${eventLocation}`;
         document.getElementById('google-calendar-btn').href = googleUrl;
 
-        // 3. Outlook Web Link (Using stricter Office 365 formatting)
+        // 3. Outlook Web Link
         const startIso = encodeURIComponent(startObj.toISOString());
         const endIso = encodeURIComponent(endObj.toISOString());
         const outlookUrl = `https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${eventTitle}&startdt=${startIso}&enddt=${endIso}&body=${eventDetails}&location=${eventLocation}`;
         document.getElementById('outlook-calendar-btn').href = outlookUrl;
 
-        // Populate the Success Modal Details
         document.getElementById('success-details').innerHTML = `
             <p class="mb-1"><strong>Host:</strong> ${slot.hostName}</p>
             <p class="mb-1"><strong>Date:</strong> ${slot.date}</p>
@@ -260,14 +284,13 @@ function confirmMeeting() {
             <p><strong>Room:</strong> ${slot.location}</p>
         `;
 
-        // Switch Modals
         closeModal("booking-modal");
         openModal("success-modal");
         resetBtn(confirmBtn);
-        
+
     }).catch((error) => {
         console.error("Error booking slot:", error);
-        alert("There was an error saving your booking. Please try again.");
+        alert(error.message || "There was an error saving your booking. Please try again.");
         resetBtn(confirmBtn);
     });
 }
@@ -277,7 +300,7 @@ function resetBtn(btn) {
     btn.disabled = false;
 }
 
-// --- 8. REAL EMAILJS NOTIFICATION LOGIC ---
+// --- 8. EMAILJS NOTIFICATION ---
 function triggerAutomatedEmail(slotInfo, studentData) {
     const templateParams = {
         to_email: slotInfo.adminEmail, 
@@ -295,21 +318,18 @@ function triggerAutomatedEmail(slotInfo, studentData) {
 
     emailjs.send(serviceID, templateID, templateParams)
         .then((response) => {
-            console.log("SUCCESS! Real email sent.", response.status, response.text);
+            console.log("Email sent successfully:", response.status, response.text);
         }, (error) => {
-            console.error("FAILED to send email...", error);
+            console.error("Failed to send email notification:", error);
         });
 }
 
 // --- 9. CALENDAR GENERATOR (.ics) ---
 function generateICS(slot, topic) {
-    // FIX: Using exact mathematical timestamps here too
     const start = new Date(slot.startTimestamp);
     const end = new Date(slot.startTimestamp + (30 * 60000));
 
-    const formatDate = (date) => {
-        return date.toISOString().replace(/-|:|\.\d+/g, '');
-    };
+    const formatDate = (date) => date.toISOString().replace(/-|:|\.\d+/g, '');
 
     const icsContent = [
         "BEGIN:VCALENDAR",
