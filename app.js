@@ -91,7 +91,7 @@ function generateTimeslots() {
     const endTimeStr = document.getElementById("admin-end").value;
     const adminId = document.getElementById("admin-host").value;
     const location = document.getElementById("admin-location").value.trim();
-    const durationMin = parseInt(document.getElementById("admin-duration").value, 10) || 30;
+    const durationMin = parseInt(document.getElementById("admin-duration").value, 10) || 15;
 
     if (!dateStr || !startTimeStr || !endTimeStr || !location) {
         alert("Please fill out all fields, including the date and location.");
