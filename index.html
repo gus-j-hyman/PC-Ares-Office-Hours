@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office Hours for PC ARES</title>
+    <title>Office Hours for PC Ares</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -118,10 +118,20 @@
                 <button onclick="closeModal('admin-dashboard-modal')" class="text-white hover:text-dsp-gold text-xl">&times;</button>
             </div>
             <div class="p-6">
-                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                         <label class="block text-sm font-semibold mb-1">Date</label>
                         <input type="date" id="admin-date" class="w-full border p-2 rounded">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-1">Slot Duration</label>
+                        <select id="admin-duration" class="w-full border p-2 rounded">
+                            <option value="15">15 Minutes</option>
+                            <option value="20">20 Minutes</option>
+                            <option value="30" selected>30 Minutes</option>
+                            <option value="45">45 Minutes</option>
+                            <option value="60">60 Minutes (1 Hr)</option>
+                        </select>
                     </div>
                     <div>
                         <label class="block text-sm font-semibold mb-1">Start Time</label>
@@ -139,7 +149,7 @@
                 <label class="block text-sm font-semibold mb-1">Room Location</label>
                 <input type="text" id="admin-location" class="w-full border p-2 rounded mb-4" placeholder="e.g., Heavener Hall 101 or Zoom Link">
                 
-                <button onclick="generateTimeslots()" class="w-full py-2 bg-dsp-purple text-white font-bold rounded hover:bg-purple-800 transition-colors">Generate 30-Min Slots</button>
+                <button onclick="generateTimeslots()" class="w-full py-2 bg-dsp-purple text-white font-bold rounded hover:bg-purple-800 transition-colors">Generate Slots</button>
             </div>
         </div>
     </div>
