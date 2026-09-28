@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Office Hours for PC XXX</title>
+    <title>Office Hours for PC ARES</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -19,7 +19,6 @@
     </script>
     
     <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
-    
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
 </head>
@@ -30,7 +29,7 @@
             <div class="w-12 h-12 bg-dsp-gold rounded-full flex items-center justify-center font-bold text-dsp-purple border-2 border-white">
                 ΔΣΠ
             </div>
-            <h1 class="text-2xl font-bold">Office Hours for PC XXX</h1>
+            <h1 class="text-2xl font-bold">Office Hours for PC ARES</h1>
         </div>
         <button onclick="openAdminAuth()" class="text-2xl hover:text-dsp-gold transition-colors" title="Admin Portal">
             ⚙️
@@ -39,11 +38,10 @@
 
     <main class="p-8 max-w-6xl mx-auto">
         <h2 class="text-xl font-semibold mb-6 border-b-2 border-dsp-gold inline-block pb-1">Available Timeslots</h2>
-        
-        <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            </div>
+        <div id="calendar-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
     </main>
 
+    <!-- Booking Modal -->
     <div id="booking-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md overflow-hidden">
             <div class="bg-dsp-purple text-white p-4 font-bold">Book Office Hours</div>
@@ -76,6 +74,7 @@
         </div>
     </div>
 
+    <!-- Success Modal -->
     <div id="success-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-[60]">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm overflow-hidden relative text-center p-6">
             <button onclick="closeModal('success-modal')" class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
@@ -83,8 +82,7 @@
             <div class="text-5xl mb-4">✅</div>
             <h3 class="text-2xl font-bold text-dsp-purple mb-2">Meeting Confirmed!</h3>
             
-            <div id="success-details" class="text-gray-700 text-sm mb-6 bg-gray-50 p-4 rounded text-left border border-gray-200">
-                </div>
+            <div id="success-details" class="text-gray-700 text-sm mb-6 bg-gray-50 p-4 rounded text-left border border-gray-200"></div>
             
             <div class="grid grid-cols-1 gap-2">
                 <a id="apple-calendar-btn" href="#" class="block w-full py-2 bg-gray-800 text-white font-bold rounded hover:bg-gray-900 transition-colors flex justify-center items-center gap-2">
@@ -100,6 +98,7 @@
         </div>
     </div>
 
+    <!-- Admin Auth Modal -->
     <div id="admin-auth-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-sm p-6">
             <h3 class="text-lg font-bold mb-4">Admin Access</h3>
@@ -111,6 +110,7 @@
         </div>
     </div>
 
+    <!-- Admin Dashboard Modal -->
     <div id="admin-dashboard-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-lg shadow-xl w-full max-w-lg overflow-hidden">
             <div class="bg-dsp-purple text-white p-4 font-bold flex justify-between">
