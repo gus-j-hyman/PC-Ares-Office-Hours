@@ -84,13 +84,14 @@ function populateAdminDropdown() {
     });
 }
 
-// --- 5. SLOT GENERATION (BATCH WRITE) ---
+// --- 5. SLOT GENERATION (DYNAMIC DURATION & BATCH WRITE) ---
 function generateTimeslots() {
     const dateStr = document.getElementById("admin-date").value;
     const startTimeStr = document.getElementById("admin-start").value;
     const endTimeStr = document.getElementById("admin-end").value;
     const adminId = document.getElementById("admin-host").value;
     const location = document.getElementById("admin-location").value.trim();
+    const durationMin = parseInt(document.getElementById("admin-duration").value, 10) || 30;
 
     if (!dateStr || !startTimeStr || !endTimeStr || !location) {
         alert("Please fill out all fields, including the date and location.");
@@ -121,12 +122,13 @@ function generateTimeslots() {
 
     let currentMs = startDateObj.getTime();
     const endMs = endDateObj.getTime();
+    const stepMs = durationMin * 60000;
     let generatedCount = 0;
 
     const batch = db.batch();
 
     while (currentMs < endMs) {
-        const nextMs = currentMs + (30 * 60000);
+        const nextMs = currentMs + stepMs;
         if (nextMs > endMs) break;
 
         const slotStart = new Date(currentMs);
@@ -138,6 +140,8 @@ function generateTimeslots() {
             startTime: formatTime(slotStart),
             endTime: formatTime(slotEnd),
             startTimestamp: currentMs, 
+            endTimestamp: nextMs,
+            durationMin: durationMin,
             hostName: selectedAdmin.name,
             adminEmail: selectedAdmin.email,
             location: location,
@@ -149,7 +153,7 @@ function generateTimeslots() {
     }
 
     batch.commit().then(() => {
-        alert(`Successfully generated ${generatedCount} time slots.`);
+        alert(`Successfully generated ${generatedCount} (${durationMin}-min) time slots.`);
         closeModal("admin-dashboard-modal");
     }).catch((error) => {
         console.error("Error committing slot batch:", error);
@@ -248,12 +252,13 @@ function confirmMeeting() {
             studentNotes: info
         });
 
-        return slotData;
+        return { id: slotDoc.id, ...slotData };
     }).then((slot) => {
         triggerAutomatedEmail(slot, { name, topic, info });
 
+        const slotDurationMs = slot.endTimestamp ? (slot.endTimestamp - slot.startTimestamp) : ((slot.durationMin || 30) * 60000);
         const startObj = new Date(slot.startTimestamp);
-        const endObj = new Date(slot.startTimestamp + (30 * 60000));
+        const endObj = new Date(slot.startTimestamp + slotDurationMs);
 
         const eventTitle = encodeURIComponent(`${topic} with ${slot.hostName}`);
         const eventLocation = encodeURIComponent(slot.location);
@@ -326,8 +331,9 @@ function triggerAutomatedEmail(slotInfo, studentData) {
 
 // --- 9. CALENDAR GENERATOR (.ics) ---
 function generateICS(slot, topic) {
+    const slotDurationMs = slot.endTimestamp ? (slot.endTimestamp - slot.startTimestamp) : ((slot.durationMin || 30) * 60000);
     const start = new Date(slot.startTimestamp);
-    const end = new Date(slot.startTimestamp + (30 * 60000));
+    const end = new Date(slot.startTimestamp + slotDurationMs);
 
     const formatDate = (date) => date.toISOString().replace(/-|:|\.\d+/g, '');
 
