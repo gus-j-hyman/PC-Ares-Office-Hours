@@ -256,15 +256,35 @@ function confirmMeeting() {
     }).then((slot) => {
         triggerAutomatedEmail(slot, { name, topic, info });
 
-        const slotDurationMs = slot.endTimestamp ? (slot.endTimestamp - slot.startTimestamp) : ((slot.durationMin || 30) * 60000);
+        const slotDurationMs = slot.endTimestamp
+            ? (slot.endTimestamp - slot.startTimestamp)
+            : ((slot.durationMin || 15) * 60000);
+
         const startObj = new Date(slot.startTimestamp);
         const endObj = new Date(slot.startTimestamp + slotDurationMs);
 
         const eventTitle = encodeURIComponent(`${topic} with ${slot.hostName}`);
         const eventLocation = encodeURIComponent(slot.location);
-        const eventDetails = encodeURIComponent(`DSP Office Hours meeting regarding ${topic}.\nNotes: ${info || 'None'}`);
+        const eventDetails = encodeURIComponent(
+            `DSP Office Hours meeting regarding ${topic}.\nNotes: ${info || 'None'}`
+        );
 
-        const formatWebDate = (d) => d.toISOString().replace(/-|:|\.\d+/g, '');
+        // Format local date/time for Google Calendar.
+        // Google Calendar is explicitly told to interpret these times
+        // using the America/New_York timezone.
+        const formatGoogleDate = (date) => {
+            const pad = (num) => String(num).padStart(2, '0');
+
+            return (
+                date.getFullYear() +
+                pad(date.getMonth() + 1) +
+                pad(date.getDate()) +
+                'T' +
+                pad(date.getHours()) +
+                pad(date.getMinutes()) +
+                pad(date.getSeconds())
+            );
+        };
 
         // 1. Apple/Default (.ics file)
         const icsLink = generateICS(slot, topic);
@@ -273,13 +293,30 @@ function confirmMeeting() {
         appleBtn.download = `DSP_Office_Hours_${slot.hostName.replace(/\s+/g, '_')}.ics`;
 
         // 2. Google Calendar Link
-        const googleUrl = `https://calendar.google.com/calendar/render?action=TEMPLATE&text=${eventTitle}&dates=${formatWebDate(startObj)}/${formatWebDate(endObj)}&details=${eventDetails}&location=${eventLocation}`;
+        const googleUrl =
+            `https://calendar.google.com/calendar/render?action=TEMPLATE` +
+            `&text=${eventTitle}` +
+            `&dates=${formatGoogleDate(startObj)}/${formatGoogleDate(endObj)}` +
+            `&details=${eventDetails}` +
+            `&location=${eventLocation}` +
+            `&ctz=America%2FNew_York`;
+
         document.getElementById('google-calendar-btn').href = googleUrl;
 
         // 3. Outlook Web Link
         const startIso = encodeURIComponent(startObj.toISOString());
         const endIso = encodeURIComponent(endObj.toISOString());
-        const outlookUrl = `https://outlook.office.com/calendar/0/deeplink/compose?path=/calendar/action/compose&rru=addevent&subject=${eventTitle}&startdt=${startIso}&enddt=${endIso}&body=${eventDetails}&location=${eventLocation}`;
+
+        const outlookUrl =
+            `https://outlook.office.com/calendar/0/deeplink/compose?` +
+            `path=/calendar/action/compose` +
+            `&rru=addevent` +
+            `&subject=${eventTitle}` +
+            `&startdt=${startIso}` +
+            `&enddt=${endIso}` +
+            `&body=${eventDetails}` +
+            `&location=${eventLocation}`;
+
         document.getElementById('outlook-calendar-btn').href = outlookUrl;
 
         document.getElementById('success-details').innerHTML = `
@@ -331,7 +368,10 @@ function triggerAutomatedEmail(slotInfo, studentData) {
 
 // --- 9. CALENDAR GENERATOR (.ics) ---
 function generateICS(slot, topic) {
-    const slotDurationMs = slot.endTimestamp ? (slot.endTimestamp - slot.startTimestamp) : ((slot.durationMin || 30) * 60000);
+    const slotDurationMs = slot.endTimestamp
+        ? (slot.endTimestamp - slot.startTimestamp)
+        : ((slot.durationMin || 15) * 60000);
+
     const start = new Date(slot.startTimestamp);
     const end = new Date(slot.startTimestamp + slotDurationMs);
 
@@ -353,6 +393,9 @@ function generateICS(slot, topic) {
         "END:VCALENDAR"
     ].join('\n');
 
-    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const blob = new Blob([icsContent], {
+        type: 'text/calendar;charset=utf-8'
+    });
+
     return URL.createObjectURL(blob);
 }
