@@ -19,7 +19,7 @@ emailjs.init("aKaqwihPbn46q3V25");
 const ADMIN_PASSWORD = "BetaEta#1";
 
 const ADMIN_USERS = [
-    { id: "admin_1", name: "Gus Hyman", email: "gus.j.hyman@gmail.com" },
+    { id: "admin_1", name: "Brother Hyman", email: "gus.j.hyman@gmail.com" },
     { id: "admin_2", name: "Brother Wechsler", email: "pledgedevelopment@ufdsp.com" },
     { id: "admin_3", name: "Brother Hoyos", email: "a.hoyos@ufdsp.com" },
     { id: "admin_4", name: "Brother Thomas", email: "j.thomas@ufdsp.com" },
