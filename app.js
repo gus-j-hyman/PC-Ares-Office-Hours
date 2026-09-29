@@ -14,7 +14,9 @@ firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
 // --- 2. STATE & EMAILJS INIT ---
-emailjs.init("aKaqwihPbn46q3V25"); 
+emailjs.init({
+    publicKey: "AhX_8qiH471qHeweR"
+});
 
 const ADMIN_PASSWORD = "BetaEta#1";
 
@@ -117,7 +119,10 @@ function generateTimeslots() {
     }
 
     const formattedDate = startDateObj.toLocaleDateString('en-US', { 
-        weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' 
+        weekday: 'short',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric' 
     });
 
     let currentMs = startDateObj.getTime();
@@ -129,12 +134,14 @@ function generateTimeslots() {
 
     while (currentMs < endMs) {
         const nextMs = currentMs + stepMs;
+
         if (nextMs > endMs) break;
 
         const slotStart = new Date(currentMs);
         const slotEnd = new Date(nextMs);
 
         const newRef = db.collection("timeslots").doc();
+
         batch.set(newRef, {
             date: formattedDate,
             startTime: formatTime(slotStart),
@@ -162,7 +169,11 @@ function generateTimeslots() {
 }
 
 function formatTime(dateObj) {
-    return dateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return dateObj.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+    });
 }
 
 // --- 6. CALENDAR RENDERING ---
@@ -180,24 +191,46 @@ function renderCalendar() {
     availableSlots.sort((a, b) => a.startTimestamp - b.startTimestamp);
 
     if (availableSlots.length === 0) {
-        grid.innerHTML = `<p class="col-span-full text-gray-500 italic text-center py-8">No available timeslots currently. Check back later.</p>`;
+        grid.innerHTML = `
+            <p class="col-span-full text-gray-500 italic text-center py-8">
+                No available timeslots currently. Check back later.
+            </p>
+        `;
         return;
     }
 
     availableSlots.forEach(slot => {
         const card = document.createElement("div");
-        card.className = "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 cursor-pointer border-l-4 border-l-dsp-gold flex flex-col justify-between";
+
+        card.className =
+            "bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-shadow p-5 cursor-pointer border-l-4 border-l-dsp-gold flex flex-col justify-between";
+
         card.onclick = () => initBooking(slot.id);
 
         card.innerHTML = `
             <div>
-                <div class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-1">📅 ${slot.date}</div>
-                <div class="text-lg font-bold text-dsp-purple mb-3">🕒 ${slot.startTime} - ${slot.endTime}</div>
-                <div class="text-sm text-gray-700 mb-1"><strong>Host:</strong> ${slot.hostName}</div>
-                <div class="text-sm text-gray-700"><strong>Room:</strong> ${slot.location}</div>
+                <div class="text-sm font-bold text-gray-500 uppercase tracking-wide mb-1">
+                    📅 ${slot.date}
+                </div>
+
+                <div class="text-lg font-bold text-dsp-purple mb-3">
+                    🕒 ${slot.startTime} - ${slot.endTime}
+                </div>
+
+                <div class="text-sm text-gray-700 mb-1">
+                    <strong>Host:</strong> ${slot.hostName}
+                </div>
+
+                <div class="text-sm text-gray-700">
+                    <strong>Room:</strong> ${slot.location}
+                </div>
             </div>
-            <div class="mt-4 text-sm text-dsp-gold font-semibold tracking-wide uppercase hover:underline">Book Slot &rarr;</div>
+
+            <div class="mt-4 text-sm text-dsp-gold font-semibold tracking-wide uppercase hover:underline">
+                Book Slot &rarr;
+            </div>
         `;
+
         grid.appendChild(card);
     });
 }
@@ -205,6 +238,7 @@ function renderCalendar() {
 // --- 7. ATOMIC BOOKING LOGIC ---
 function initBooking(slotId) {
     const slot = timeslots.find(s => s.id === slotId);
+
     if (!slot) return;
 
     document.getElementById("book-name").value = "";
@@ -212,7 +246,9 @@ function initBooking(slotId) {
     document.getElementById("book-info").value = "";
 
     document.getElementById("book-slot-id").value = slot.id;
-    document.getElementById("modal-slot-info").innerText = `Booking with ${slot.hostName} on ${slot.date} at ${slot.startTime}`;
+
+    document.getElementById("modal-slot-info").innerText =
+        `Booking with ${slot.hostName} on ${slot.date} at ${slot.startTime}`;
 
     openModal("booking-modal");
 }
@@ -229,6 +265,7 @@ function confirmMeeting() {
     }
 
     const confirmBtn = document.getElementById("confirm-btn");
+
     confirmBtn.innerText = "Booking...";
     confirmBtn.disabled = true;
 
@@ -236,12 +273,17 @@ function confirmMeeting() {
 
     db.runTransaction(async (transaction) => {
         const slotDoc = await transaction.get(slotRef);
+
         if (!slotDoc.exists) {
             throw new Error("This slot no longer exists.");
         }
 
         const slotData = slotDoc.data();
-        if (slotData.isBooked || slotData.startTimestamp <= Date.now()) {
+
+        if (
+            slotData.isBooked ||
+            slotData.startTimestamp <= Date.now()
+        ) {
             throw new Error("Sorry, this slot is no longer available.");
         }
 
@@ -252,28 +294,45 @@ function confirmMeeting() {
             studentNotes: info
         });
 
-        return { id: slotDoc.id, ...slotData };
+        return {
+            id: slotDoc.id,
+            ...slotData
+        };
+
     }).then((slot) => {
-        triggerAutomatedEmail(slot, { name, topic, info });
+
+        triggerAutomatedEmail(slot, {
+            name,
+            topic,
+            info
+        });
 
         const slotDurationMs = slot.endTimestamp
             ? (slot.endTimestamp - slot.startTimestamp)
             : ((slot.durationMin || 15) * 60000);
 
         const startObj = new Date(slot.startTimestamp);
-        const endObj = new Date(slot.startTimestamp + slotDurationMs);
-
-        const eventTitle = encodeURIComponent(`${topic} with ${slot.hostName}`);
-        const eventLocation = encodeURIComponent(slot.location);
-        const eventDetails = encodeURIComponent(
-            `DSP Office Hours meeting regarding ${topic}.\nNotes: ${info || 'None'}`
+        const endObj = new Date(
+            slot.startTimestamp + slotDurationMs
         );
 
-        // Format local date/time for Google Calendar.
-        // Google Calendar is explicitly told to interpret these times
-        // using the America/New_York timezone.
+        const eventTitle =
+            encodeURIComponent(
+                `${topic} with ${slot.hostName}`
+            );
+
+        const eventLocation =
+            encodeURIComponent(slot.location);
+
+        const eventDetails =
+            encodeURIComponent(
+                `DSP Office Hours meeting regarding ${topic}.\nNotes: ${info || 'None'}`
+            );
+
+        // Format local date/time for Google Calendar
         const formatGoogleDate = (date) => {
-            const pad = (num) => String(num).padStart(2, '0');
+            const pad = (num) =>
+                String(num).padStart(2, '0');
 
             return (
                 date.getFullYear() +
@@ -286,13 +345,21 @@ function confirmMeeting() {
             );
         };
 
-        // 1. Apple/Default (.ics file)
-        const icsLink = generateICS(slot, topic);
-        const appleBtn = document.getElementById('apple-calendar-btn');
-        appleBtn.href = icsLink;
-        appleBtn.download = `DSP_Office_Hours_${slot.hostName.replace(/\s+/g, '_')}.ics`;
+        // 1. Apple / Default (.ics)
+        const icsLink =
+            generateICS(slot, topic);
 
-        // 2. Google Calendar Link
+        const appleBtn =
+            document.getElementById(
+                'apple-calendar-btn'
+            );
+
+        appleBtn.href = icsLink;
+
+        appleBtn.download =
+            `DSP_Office_Hours_${slot.hostName.replace(/\s+/g, '_')}.ics`;
+
+        // 2. Google Calendar
         const googleUrl =
             `https://calendar.google.com/calendar/render?action=TEMPLATE` +
             `&text=${eventTitle}` +
@@ -301,11 +368,20 @@ function confirmMeeting() {
             `&location=${eventLocation}` +
             `&ctz=America%2FNew_York`;
 
-        document.getElementById('google-calendar-btn').href = googleUrl;
+        document.getElementById(
+            'google-calendar-btn'
+        ).href = googleUrl;
 
-        // 3. Outlook Web Link
-        const startIso = encodeURIComponent(startObj.toISOString());
-        const endIso = encodeURIComponent(endObj.toISOString());
+        // 3. Outlook
+        const startIso =
+            encodeURIComponent(
+                startObj.toISOString()
+            );
+
+        const endIso =
+            encodeURIComponent(
+                endObj.toISOString()
+            );
 
         const outlookUrl =
             `https://outlook.office.com/calendar/0/deeplink/compose?` +
@@ -317,22 +393,47 @@ function confirmMeeting() {
             `&body=${eventDetails}` +
             `&location=${eventLocation}`;
 
-        document.getElementById('outlook-calendar-btn').href = outlookUrl;
+        document.getElementById(
+            'outlook-calendar-btn'
+        ).href = outlookUrl;
 
-        document.getElementById('success-details').innerHTML = `
-            <p class="mb-1"><strong>Host:</strong> ${slot.hostName}</p>
-            <p class="mb-1"><strong>Date:</strong> ${slot.date}</p>
-            <p class="mb-1"><strong>Time:</strong> ${slot.startTime} - ${slot.endTime}</p>
-            <p><strong>Room:</strong> ${slot.location}</p>
+        document.getElementById(
+            'success-details'
+        ).innerHTML = `
+            <p class="mb-1">
+                <strong>Host:</strong> ${slot.hostName}
+            </p>
+
+            <p class="mb-1">
+                <strong>Date:</strong> ${slot.date}
+            </p>
+
+            <p class="mb-1">
+                <strong>Time:</strong> ${slot.startTime} - ${slot.endTime}
+            </p>
+
+            <p>
+                <strong>Room:</strong> ${slot.location}
+            </p>
         `;
 
         closeModal("booking-modal");
         openModal("success-modal");
+
         resetBtn(confirmBtn);
 
     }).catch((error) => {
-        console.error("Error booking slot:", error);
-        alert(error.message || "There was an error saving your booking. Please try again.");
+
+        console.error(
+            "Error booking slot:",
+            error
+        );
+
+        alert(
+            error.message ||
+            "There was an error saving your booking. Please try again."
+        );
+
         resetBtn(confirmBtn);
     });
 }
@@ -344,58 +445,130 @@ function resetBtn(btn) {
 
 // --- 8. EMAILJS NOTIFICATION ---
 function triggerAutomatedEmail(slotInfo, studentData) {
+
     const templateParams = {
-        to_email: slotInfo.adminEmail, 
+
+        to_email: slotInfo.adminEmail,
+
         host_name: slotInfo.hostName,
+
         student_name: studentData.name,
+
         topic: studentData.topic,
+
         date: slotInfo.date,
-        time: `${slotInfo.startTime} - ${slotInfo.endTime}`,
-        location: slotInfo.location,
-        notes: studentData.info || "None provided"
+
+        time:
+            `${slotInfo.startTime} - ${slotInfo.endTime}`,
+
+        location:
+            slotInfo.location,
+
+        notes:
+            studentData.info ||
+            "None provided"
     };
 
-    const serviceID = "service_txc2r2t";
-    const templateID = "template_dpi2ic9";
+    const serviceID =
+        "service_nbvwoa9";
 
-    emailjs.send(serviceID, templateID, templateParams)
-        .then((response) => {
-            console.log("Email sent successfully:", response.status, response.text);
-        }, (error) => {
-            console.error("Failed to send email notification:", error);
-        });
+    const templateID =
+        "template_ti4cget";
+
+    emailjs.send(
+        serviceID,
+        templateID,
+        templateParams
+    )
+    .then((response) => {
+
+        console.log(
+            "Email sent successfully:",
+            response.status,
+            response.text
+        );
+
+    }, (error) => {
+
+        console.error(
+            "Failed to send email notification:",
+            error
+        );
+
+    });
 }
 
 // --- 9. CALENDAR GENERATOR (.ics) ---
 function generateICS(slot, topic) {
-    const slotDurationMs = slot.endTimestamp
-        ? (slot.endTimestamp - slot.startTimestamp)
-        : ((slot.durationMin || 15) * 60000);
 
-    const start = new Date(slot.startTimestamp);
-    const end = new Date(slot.startTimestamp + slotDurationMs);
+    const slotDurationMs =
+        slot.endTimestamp
+            ? (
+                slot.endTimestamp -
+                slot.startTimestamp
+            )
+            : (
+                (slot.durationMin || 15) *
+                60000
+            );
 
-    const formatDate = (date) => date.toISOString().replace(/-|:|\.\d+/g, '');
+    const start =
+        new Date(
+            slot.startTimestamp
+        );
+
+    const end =
+        new Date(
+            slot.startTimestamp +
+            slotDurationMs
+        );
+
+    const formatDate = (date) =>
+        date
+            .toISOString()
+            .replace(
+                /-|:|\.\d+/g,
+                ''
+            );
 
     const icsContent = [
+
         "BEGIN:VCALENDAR",
+
         "VERSION:2.0",
+
         "PRODID:-//DSP Office Hours//EN",
+
         "BEGIN:VEVENT",
+
         `UID:${slot.id}@dsp.com`,
+
         `DTSTAMP:${formatDate(new Date())}`,
+
         `DTSTART:${formatDate(start)}`,
+
         `DTEND:${formatDate(end)}`,
+
         `SUMMARY:${topic} with ${slot.hostName}`,
+
         `LOCATION:${slot.location}`,
+
         `DESCRIPTION:DSP Office Hours meeting regarding ${topic}.`,
+
         "END:VEVENT",
+
         "END:VCALENDAR"
+
     ].join('\n');
 
-    const blob = new Blob([icsContent], {
-        type: 'text/calendar;charset=utf-8'
-    });
+    const blob =
+        new Blob(
+            [icsContent],
+            {
+                type:
+                    'text/calendar;charset=utf-8'
+            }
+        );
 
     return URL.createObjectURL(blob);
 }
